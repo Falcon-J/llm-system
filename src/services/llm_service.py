@@ -10,7 +10,6 @@ from src.core.config import get_settings
 from src.core.exceptions import LLMError
 
 logger = logging.getLogger(__name__)
-settings = get_settings()
 
 
 class LLMService:
@@ -18,6 +17,11 @@ class LLMService:
     
     def __init__(self):
         self.settings = get_settings()
+        
+        # Validate API key is present
+        if not self.settings.openai_api_key:
+            raise LLMError("OPENAI_API_KEY environment variable is required")
+        
         self.client = OpenAI(
             api_key=self.settings.openai_api_key,
             base_url=self.settings.openai_base_url

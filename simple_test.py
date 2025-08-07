@@ -42,7 +42,7 @@ def test_imports():
     
     try:
         print("4. Testing models...")
-        from src.models.schemas import DocumentSchema  # Replace with actual needed names
+        import src.models.schemas  # Adjusted import to avoid unknown symbol error
         print("   ✅ Models import successfully")
     except Exception as e:
         print(f"   ❌ Models import failed: {e}")

@@ -11,13 +11,13 @@ from src.core.config import get_settings
 from src.core.exceptions import RetrievalError
 
 logger = logging.getLogger(__name__)
-settings = get_settings()
 
 
 class RetrievalService:
     """Service for orchestrating the retrieval and answer generation process"""
     
     def __init__(self, embedding_service: Union[EmbeddingService, FallbackEmbeddingService], llm_service: LLMService):
+        self.settings = get_settings()
         self.embedding_service = embedding_service
         self.llm_service = llm_service
     
@@ -53,11 +53,11 @@ class RetrievalService:
                     query=question,
                     vector_store=vector_store,  # type: ignore
                     chunks=chunks,
-                    k=settings.max_results
+                    k=self.settings.max_results
                 )
             elif isinstance(self.embedding_service, FallbackEmbeddingService):
                 relevant_chunks = await self.embedding_service.search_similar(
-                    question, vector_store, chunks, settings.max_results  # type: ignore
+                    question, vector_store, chunks, self.settings.max_results  # type: ignore
                 )
             else:
                 raise RetrievalError("Unknown embedding service type")
@@ -131,7 +131,7 @@ class RetrievalService:
                 "metadata": {
                     "total_chunks_searched": len(chunks),
                     "relevant_chunks_found": len(relevant_chunks),
-                    "similarity_threshold": settings.similarity_threshold
+                    "similarity_threshold": self.settings.similarity_threshold
                 }
             }
             

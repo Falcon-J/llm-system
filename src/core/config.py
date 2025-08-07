@@ -4,6 +4,7 @@ Configuration settings for the application
 
 import os
 from functools import lru_cache
+from typing import Optional
 from pydantic_settings import BaseSettings
 
 
@@ -18,7 +19,7 @@ class Settings(BaseSettings):
     auth_token: str = "hackrx-api-token-2024"
     
     # OpenAI/OpenRouter Configuration
-    openai_api_key: str
+    openai_api_key: Optional[str] = None  # Make optional for import
     openai_base_url: str = "https://openrouter.ai/api/v1"  # Default to OpenRouter
     llm_model: str = "openai/gpt-4o-mini"  # OpenRouter model format
     embedding_model: str = "text-embedding-3-small"  # Use smaller model for embeddings
@@ -37,12 +38,12 @@ class Settings(BaseSettings):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         # Auto-detect API provider based on key format
-        if self.openai_api_key.startswith('sk-or-'):
+        if self.openai_api_key and self.openai_api_key.startswith('sk-or-'):
             # OpenRouter API
             self.openai_base_url = "https://openrouter.ai/api/v1"
             if self.llm_model == "gpt-4":
                 self.llm_model = "openai/gpt-4o-mini"  # Use free model
-        elif self.openai_api_key.startswith('sk-'):
+        elif self.openai_api_key and self.openai_api_key.startswith('sk-'):
             # Standard OpenAI API
             self.openai_base_url = "https://api.openai.com/v1"
     

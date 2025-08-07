@@ -15,13 +15,13 @@ from src.core.config import get_settings
 from src.core.exceptions import DocumentProcessingError
 
 logger = logging.getLogger(__name__)
-settings = get_settings()
 
 
 class DocumentProcessor:
     """Service for processing various document types"""
     
     def __init__(self):
+        settings = get_settings()
         self.max_size_bytes = settings.max_doc_size_mb * 1024 * 1024
         self.chunk_size = settings.chunk_size
         self.chunk_overlap = settings.chunk_overlap

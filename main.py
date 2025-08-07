@@ -12,7 +12,9 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from pydantic_settings import BaseSettings
 
-from src.models.schemas import QueryRequest, QueryResponse
+from src.models.schemas import QueryResponse
+from src.models.schemas import QueryRequest
+ # Change 'QueryInput' to the actual class name if different
 from src.services.document_processor import DocumentProcessor
 from src.services.embedding_service import EmbeddingService
 from src.services.fallback_embedding import FallbackEmbeddingService
@@ -133,7 +135,7 @@ async def run_query_retrieval(
     Main endpoint for processing documents and answering questions
     
     Args:
-        request: QueryRequest containing documents URL and questions
+        request: QueryRequest containing document text/context and questions
         credentials: Authentication credentials
         
     Returns:
@@ -148,7 +150,15 @@ async def run_query_retrieval(
         
         # Step 1: Process documents
         logger.info("Step 1: Processing documents...")
-        document_content = await document_processor.process_document_url(request.documents)
+        if request.documents:
+            # Use provided document text directly
+            document_content = request.documents
+        else:
+            # If no documents provided, use context or raise error
+            if request.context:
+                document_content = request.context
+            else:
+                raise HTTPException(status_code=400, detail="Either documents or context must be provided")
         
         # Step 2: Create embeddings and build vector store
         logger.info("Step 2: Creating embeddings...")

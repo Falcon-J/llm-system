@@ -3,27 +3,25 @@ Pydantic models for request/response schemas
 """
 
 from typing import List, Optional
-from pydantic import BaseModel, HttpUrl, Field
+from pydantic import BaseModel, HttpUrl, Field, conlist
 
 
 class QueryRequest(BaseModel):
-    """Request model for query processing"""
-    
-    documents: str = Field(
-        ..., 
-        description="URL to the document (PDF, DOCX, or email)",
-        example="https://example.com/policy.pdf"
-    )
     questions: List[str] = Field(
-        ..., 
-        min_items=1,
-        description="List of questions to answer based on the document",
-        example=[
-            "What is the grace period for premium payment?",
-            "Does this policy cover maternity expenses?"
+        ...,
+        description="List of questions to be answered",
+        examples=[
+            ["What is the grace period for premium payment?", "Does the policy cover maternity expenses?"]
         ]
     )
-
+    context: Optional[str] = Field(
+        None,
+        description="Optional context or background information for the questions"
+    )
+    documents: Optional[str] = Field(
+        None,
+        description="Optional document text to be used for answering the questions"
+    )
 
 class QueryResponse(BaseModel):
     """Response model for query processing"""
@@ -31,7 +29,7 @@ class QueryResponse(BaseModel):
     answers: List[str] = Field(
         ...,
         description="List of answers corresponding to the input questions",
-        example=[
+        examples=[
             "A grace period of thirty days is provided for premium payment.",
             "Yes, the policy covers maternity expenses with specific conditions."
         ]
