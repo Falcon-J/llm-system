@@ -16,10 +16,10 @@ class Settings(BaseSettings):
     environment: str = os.getenv("ENVIRONMENT", "production")
     
     # Competition Authentication (DO NOT CHANGE)
-    auth_token: str = "hackrx-api-token-2024"
+    auth_token: str = os.getenv("AUTH_TOKEN", "hackrx-api-token-2024")
     
     # OpenAI/OpenRouter Configuration
-    openai_api_key: Optional[str] = None  # Make optional for import
+    openai_api_key: Optional[str] = os.getenv("OPENAI_API_KEY")  # Get from environment
     openai_base_url: str = "https://openrouter.ai/api/v1"  # Default to OpenRouter
     llm_model: str = "openai/gpt-4o-mini"  # OpenRouter model format
     embedding_model: str = "text-embedding-3-small"  # Use smaller model for embeddings

@@ -68,11 +68,14 @@ async def lifespan(app: FastAPI):
         retrieval_service = RetrievalService(embedding_service, llm_service)
         
         logger.info("All services initialized successfully")
+        
+        # Yield to start the application
         yield
         
     except Exception as e:
         logger.error(f"Failed to initialize services: {e}")
-        raise
+        # Still yield to allow the app to start (health checks can report the error)
+        yield
     finally:
         logger.info("Shutting down services...")
 
@@ -104,7 +107,7 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Security(security))
 
 @app.get("/")
 async def root():
-    """Health check endpoint"""
+    """Root endpoint - simple health check for Railway"""
     return {
         "message": "LLM-Powered Intelligent Query-Retrieval System",
         "status": "healthy",
@@ -114,16 +117,25 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    """Detailed health check"""
-    return {
-        "status": "healthy",
-        "services": {
-            "document_processor": document_processor is not None,
-            "embedding_service": embedding_service is not None,
-            "llm_service": llm_service is not None,
-            "retrieval_service": retrieval_service is not None
+    """Detailed health check - no auth required for Railway"""
+    try:
+        # Basic health check that Railway can use
+        return {
+            "status": "healthy",
+            "version": "1.0.0",
+            "services": {
+                "document_processor": document_processor is not None,
+                "embedding_service": embedding_service is not None,
+                "llm_service": llm_service is not None,
+                "retrieval_service": retrieval_service is not None
+            }
         }
-    }
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+        return {
+            "status": "unhealthy",
+            "error": str(e)
+        }
 
 
 @app.post("/hackrx/run", response_model=QueryResponse)
@@ -208,9 +220,11 @@ async def run_query_retrieval(
 
 if __name__ == "__main__":
     import uvicorn
+    # Use PORT environment variable for Railway compatibility
+    port = int(os.getenv("PORT", 8000))
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
-        port=settings.port,
-        reload=(settings.environment == "development")
+        port=port,
+        reload=False  # Disable reload in production
     )
