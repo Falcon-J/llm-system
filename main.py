@@ -46,35 +46,40 @@ retrieval_service: Union[RetrievalService, None] = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Initialize services on startup"""
+    """Initialize services on startup with lazy loading for Railway health checks"""
     global document_processor, embedding_service, llm_service, retrieval_service
     
-    logger.info("Initializing services...")
+    logger.info("Starting application lifespan...")
     
     try:
-        # Initialize services
+        # Initialize document processor first (no external dependencies)
+        logger.info("Initializing document processor...")
         document_processor = DocumentProcessor()
-        llm_service = LLMService()
+        logger.info("Document processor initialized")
         
-        # Try to initialize embedding service, fallback if needed
+        # Initialize embedding service with fallback (lazy initialization)
+        logger.info("Initializing embedding service...")
         try:
-            embedding_service = EmbeddingService()
-            logger.info("Using OpenAI/OpenRouter embedding service")
+            embedding_service = FallbackEmbeddingService()  # Use fallback first for faster startup
+            logger.info("Using fallback TF-IDF embedding service for startup")
         except Exception as e:
-            logger.warning(f"OpenAI embedding service failed: {e}")
-            logger.info("Using fallback TF-IDF embedding service")
-            embedding_service = FallbackEmbeddingService()
+            logger.error(f"Even fallback embedding service failed: {e}")
+            embedding_service = None
         
-        retrieval_service = RetrievalService(embedding_service, llm_service)
+        # Skip LLM and retrieval service initialization during startup
+        # They will be initialized on first request if needed
+        logger.info("Deferring LLM service initialization until first request")
+        llm_service = None
+        retrieval_service = None
         
-        logger.info("All services initialized successfully")
+        logger.info("Basic services initialized - app ready for health checks")
         
         # Yield to start the application
         yield
         
     except Exception as e:
-        logger.error(f"Failed to initialize services: {e}")
-        # Still yield to allow the app to start (health checks can report the error)
+        logger.error(f"Error during startup: {e}")
+        # Always yield to allow health checks to work
         yield
     finally:
         logger.info("Shutting down services...")
@@ -105,14 +110,47 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Security(security))
     return credentials
 
 
+async def ensure_services_initialized():
+    """Lazy initialization of services when first needed"""
+    global llm_service, retrieval_service, embedding_service
+    
+    if llm_service is None:
+        logger.info("Lazy initializing LLM service...")
+        try:
+            llm_service = LLMService()
+            logger.info("LLM service initialized successfully")
+        except Exception as e:
+            logger.error(f"LLM service initialization failed: {e}")
+            raise HTTPException(status_code=500, detail=f"LLM service unavailable: {str(e)}")
+    
+    if retrieval_service is None and llm_service is not None and embedding_service is not None:
+        logger.info("Lazy initializing retrieval service...")
+        try:
+            retrieval_service = RetrievalService(embedding_service, llm_service)
+            logger.info("Retrieval service initialized successfully")
+        except Exception as e:
+            logger.error(f"Retrieval service initialization failed: {e}")
+            raise HTTPException(status_code=500, detail=f"Retrieval service unavailable: {str(e)}")
+
+
 @app.get("/")
 async def root():
-    """Root endpoint - simple health check for Railway"""
-    return {
-        "message": "LLM-Powered Intelligent Query-Retrieval System",
-        "status": "healthy",
-        "version": "1.0.0"
-    }
+    """Root endpoint - minimal health check for Railway"""
+    try:
+        # Just return a simple response without checking services
+        return {
+            "message": "LLM-Powered Intelligent Query-Retrieval System",
+            "status": "healthy",
+            "version": "1.0.0",
+            "environment": settings.environment
+        }
+    except Exception:
+        # Even if settings fail, return something
+        return {
+            "message": "LLM-Powered Intelligent Query-Retrieval System",
+            "status": "starting",
+            "version": "1.0.0"
+        }
 
 
 @app.get("/health")
@@ -156,9 +194,15 @@ async def run_query_retrieval(
     try:
         logger.info(f"Processing request with {len(request.questions)} questions")
         
+        # Ensure all services are initialized (lazy loading)
+        await ensure_services_initialized()
+        
         # Check services are initialized
-        if not document_processor or not embedding_service or not llm_service or not retrieval_service:
-            raise HTTPException(status_code=500, detail="Services not properly initialized")
+        if not document_processor or not embedding_service:
+            raise HTTPException(status_code=500, detail="Core services not properly initialized")
+        
+        if not llm_service or not retrieval_service:
+            raise HTTPException(status_code=500, detail="LLM services not properly initialized")
         
         # Step 1: Process documents
         logger.info("Step 1: Processing documents...")

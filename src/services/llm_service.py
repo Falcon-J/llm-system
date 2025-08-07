@@ -22,13 +22,20 @@ class LLMService:
         if not self.settings.openai_api_key:
             raise LLMError("OPENAI_API_KEY environment variable is required")
         
-        self.client = OpenAI(
-            api_key=self.settings.openai_api_key,
-            base_url=self.settings.openai_base_url
-        )
-        self.model = self.settings.llm_model
-        self.max_tokens = self.settings.max_tokens
-        self.temperature = self.settings.temperature
+        try:
+            self.client = OpenAI(
+                api_key=self.settings.openai_api_key,
+                base_url=self.settings.openai_base_url,
+                timeout=30.0  # Add timeout for Railway
+            )
+            self.model = self.settings.llm_model
+            self.max_tokens = self.settings.max_tokens
+            self.temperature = self.settings.temperature
+            
+            logger.info(f"LLM service initialized with model: {self.model}")
+        except Exception as e:
+            logger.error(f"Failed to initialize OpenAI client: {e}")
+            raise LLMError(f"Failed to initialize LLM service: {str(e)}")
     
     async def generate_answer(
         self, 
